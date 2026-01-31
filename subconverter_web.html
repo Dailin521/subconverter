@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Subconverter 订阅链接生成器</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@400;600;700&display=swap");
+
+      :root {
+        --bg-1: #0f172a;
+        --bg-2: #121b38;
+        --bg-3: #0b1220;
+        --card: #111827cc;
+        --accent: #f59e0b;
+        --accent-2: #2dd4bf;
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --danger: #f87171;
+        --ok: #4ade80;
+        --shadow: 0 30px 60px rgba(2, 8, 23, 0.55);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Space Grotesk", "Segoe UI", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(1200px 800px at 20% -10%, rgba(45, 212, 191, 0.25), transparent 60%),
+          radial-gradient(900px 700px at 100% 0%, rgba(245, 158, 11, 0.2), transparent 55%),
+          linear-gradient(180deg, var(--bg-1), var(--bg-2) 40%, var(--bg-3));
+        overflow-x: hidden;
+      }
+
+      .wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 48px 24px 64px;
+      }
+
+      .hero {
+        display: grid;
+        gap: 16px;
+        margin-bottom: 28px;
+        animation: fadeUp 700ms ease-out both;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        color: var(--muted);
+        width: fit-content;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(28px, 4vw, 44px);
+        line-height: 1.1;
+      }
+
+      .hero p {
+        margin: 0;
+        color: var(--muted);
+        max-width: 700px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(14px);
+        animation: fadeUp 800ms ease-out both;
+      }
+
+      .card:nth-child(2) {
+        animation-delay: 120ms;
+      }
+
+      label {
+        display: block;
+        margin: 0 0 6px;
+        font-size: 13px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      input,
+      textarea,
+      select {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.7);
+        color: var(--text);
+        font-family: "IBM Plex Mono", "Consolas", monospace;
+        font-size: 13px;
+        transition: border 200ms ease, box-shadow 200ms ease;
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--accent-2);
+        box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
+      }
+
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        border: 0;
+        border-radius: 12px;
+        padding: 10px 16px;
+        font-family: "Space Grotesk", "Segoe UI", sans-serif;
+        font-weight: 600;
+        cursor: pointer;
+        background: linear-gradient(135deg, var(--accent), #fb7185);
+        color: #0b1120;
+        transition: transform 150ms ease, box-shadow 200ms ease;
+      }
+
+      button.secondary {
+        background: rgba(15, 23, 42, 0.8);
+        color: var(--text);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.4);
+      }
+
+      .output-area {
+        display: grid;
+        gap: 14px;
+      }
+
+      .status {
+        font-family: "IBM Plex Mono", "Consolas", monospace;
+        font-size: 12px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px dashed rgba(148, 163, 184, 0.3);
+        color: var(--muted);
+        min-height: 80px;
+        white-space: pre-wrap;
+      }
+
+      .status.ok {
+        border-color: rgba(74, 222, 128, 0.6);
+        color: var(--ok);
+      }
+
+      .status.error {
+        border-color: rgba(248, 113, 113, 0.6);
+        color: var(--danger);
+      }
+
+      .hint {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 6px;
+      }
+
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 720px) {
+        .wrap {
+          padding: 32px 16px 48px;
+        }
+        .row {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <header class="hero">
+        <span class="badge">subconverter /sub 生成器</span>
+        <h1>生成 Clash/Mihomo 订阅链接</h1>
+        <p>
+          输入上游订阅、选择目标类型，即可生成 Clash/Mihomo 可用的订阅链接。
+          可选的“获取并检测”会拉取前几行，用于确认 YAML 关键字段。
+        </p>
+        <div class="actions">
+          <button type="button" class="secondary" id="presetLocal">使用 127.0.0.1:25500</button>
+          <button type="button" class="secondary" id="presetRemote">使用示例地址</button>
+          <button type="button" class="secondary" id="fillExample">填入示例上游</button>
+        </div>
+      </header>
+
+      <section class="grid">
+        <div class="card">
+          <label for="converterBase">转换器地址</label>
+          <input id="converterBase" type="text" placeholder="http://127.0.0.1:25500">
+
+          <label for="target" style="margin-top: 14px;">目标类型</label>
+          <input id="target" type="text" value="clash" placeholder="clash">
+
+          <label for="upstream" style="margin-top: 14px;">上游订阅 URL</label>
+          <textarea id="upstream" placeholder="每行一个，或使用 | 合并"></textarea>
+          <div class="hint">多个上游会用 | 拼接后整体编码。</div>
+
+          <label for="externalConfig" style="margin-top: 14px;">外部配置 URL（可选）</label>
+          <input id="externalConfig" type="text" placeholder="https://example.com/config.ini">
+
+          <label for="filename" style="margin-top: 14px;">订阅名/文件名（可选）</label>
+          <input id="filename" type="text" placeholder="my-clash-subscription">
+          <div class="hint">会作为返回内容的文件名，部分客户端会把它当作订阅显示名。</div>
+
+          <div class="row" style="margin-top: 18px;">
+            <button type="button" id="buildBtn">生成链接</button>
+            <button type="button" class="secondary" id="clearBtn">清空</button>
+          </div>
+        </div>
+
+        <div class="card output-area">
+          <div>
+            <label for="convertedUrl">转换后的 URL</label>
+            <textarea id="convertedUrl" readonly placeholder="转换后的链接会显示在这里"></textarea>
+          </div>
+          <div class="row">
+            <button type="button" id="copyBtn">复制链接</button>
+            <button type="button" class="secondary" id="openBtn">打开链接</button>
+            <button type="button" class="secondary" id="sniffBtn">获取并检测</button>
+          </div>
+          <div>
+            <label for="maskedUrl">脱敏 URL（用于日志）</label>
+            <textarea id="maskedUrl" readonly placeholder="脱敏后的链接"></textarea>
+          </div>
+          <div>
+            <label>状态</label>
+            <div id="status" class="status">等待输入。</div>
+            <div class="hint">若浏览器提示失败，多半是 CORS 限制，建议直接打开链接验证。</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const elements = {
+        converterBase: document.getElementById("converterBase"),
+        target: document.getElementById("target"),
+        upstream: document.getElementById("upstream"),
+        externalConfig: document.getElementById("externalConfig"),
+        filename: document.getElementById("filename"),
+        convertedUrl: document.getElementById("convertedUrl"),
+        maskedUrl: document.getElementById("maskedUrl"),
+        status: document.getElementById("status"),
+      };
+
+        const presets = {
+          local: "http://127.0.0.1:25500",
+          remote: "http://example.com:25500",
+          upstream: "https://example.com/sub/your-token",
+        };
+
+      function parseUpstreams(raw) {
+        if (!raw) return "";
+        const lines = raw.split(/\r?\n/);
+        const parts = [];
+        for (const line of lines) {
+          const splitParts = line.split("|");
+          for (const item of splitParts) {
+            const trimmed = item.trim();
+            if (trimmed) parts.push(trimmed);
+          }
+        }
+        return parts.join("|");
+      }
+
+      function buildConvertedUrl() {
+        const base = elements.converterBase.value.trim();
+        const target = elements.target.value.trim() || "clash";
+        const upstreamRaw = elements.upstream.value.trim();
+        const config = elements.externalConfig.value.trim();
+        const filename = elements.filename.value.trim();
+
+        if (!base || !upstreamRaw) {
+          return "";
+        }
+
+        let url;
+        try {
+          url = new URL(base);
+        } catch (err) {
+          throw new Error("转换器地址无效");
+        }
+
+        let path = url.pathname.replace(/\/+$/, "");
+        if (!path.endsWith("/sub")) {
+          path = path + "/sub";
+        }
+        url.pathname = path;
+
+        const params = new URLSearchParams();
+        params.set("target", target);
+        params.set("url", parseUpstreams(upstreamRaw));
+        if (config) {
+          params.set("config", config);
+        }
+        if (filename) {
+          params.set("filename", filename);
+        }
+        url.search = params.toString();
+        return url.toString();
+      }
+
+      function maskValue(value, keep = 6) {
+        if (!value || value.length <= keep) return value;
+        return value.slice(0, keep) + "...(masked)";
+      }
+
+      function maskUrl(url) {
+        const parsed = new URL(url);
+        const params = new URLSearchParams(parsed.search);
+        for (const key of params.keys()) {
+          const lower = key.toLowerCase();
+          if (["url", "config", "token", "auth"].includes(lower)) {
+            params.set(key, maskValue(params.get(key)));
+          }
+        }
+        parsed.search = params.toString();
+        return parsed.toString();
+      }
+
+      function setStatus(message, type = "") {
+        elements.status.textContent = message;
+        elements.status.className = "status" + (type ? " " + type : "");
+      }
+
+      function refreshOutputs() {
+        try {
+          const converted = buildConvertedUrl();
+          elements.convertedUrl.value = converted;
+          elements.maskedUrl.value = converted ? maskUrl(converted) : "";
+          if (!converted) {
+            setStatus("等待输入。");
+          } else {
+            setStatus("链接已生成，可复制、打开或检测。");
+          }
+        } catch (err) {
+          elements.convertedUrl.value = "";
+          elements.maskedUrl.value = "";
+          setStatus(err.message || "输入无效。", "error");
+        }
+      }
+
+      async function sniffUrl() {
+        const url = elements.convertedUrl.value;
+        if (!url) {
+          setStatus("请先生成链接。", "error");
+          return;
+        }
+        setStatus("正在获取...", "");
+        try {
+          const res = await fetch(url, { method: "GET" });
+          const text = await res.text();
+          const lower = text.toLowerCase();
+          if (lower.includes("invalid target")) {
+            setStatus("Invalid target! 请检查转换器是否支持该 target。", "error");
+            return;
+          }
+          if (lower.includes("no nodes were found")) {
+            setStatus("No nodes were found! 上游解析失败。", "error");
+            return;
+          }
+          if (lower.includes("proxies:") || lower.includes("proxy-groups:") || lower.includes("rules:")) {
+            const snippet = text.split(/\r?\n/).slice(0, 6).join("\n");
+            setStatus("检测到 YAML 关键字段。\n" + snippet, "ok");
+            return;
+          }
+          setStatus("响应看起来不是 YAML。\n" + text.slice(0, 200), "error");
+        } catch (err) {
+          setStatus(
+            "获取失败。常见原因是浏览器 CORS 限制。\n" +
+              "建议直接打开链接验证，或使用本地转换器。\n" +
+              String(err),
+            "error"
+          );
+        }
+      }
+
+      document.getElementById("buildBtn").addEventListener("click", refreshOutputs);
+      document.getElementById("clearBtn").addEventListener("click", () => {
+        elements.converterBase.value = "";
+        elements.target.value = "clash";
+        elements.upstream.value = "";
+        elements.externalConfig.value = "";
+        elements.filename.value = "";
+        refreshOutputs();
+      });
+      document.getElementById("copyBtn").addEventListener("click", async () => {
+        const url = elements.convertedUrl.value;
+        if (!url) return;
+        try {
+          await navigator.clipboard.writeText(url);
+          setStatus("已复制到剪贴板。", "ok");
+        } catch (err) {
+          elements.convertedUrl.select();
+          document.execCommand("copy");
+          setStatus("已复制到剪贴板。", "ok");
+        }
+      });
+      document.getElementById("openBtn").addEventListener("click", () => {
+        const url = elements.convertedUrl.value;
+        if (url) window.open(url, "_blank", "noopener");
+      });
+      document.getElementById("sniffBtn").addEventListener("click", sniffUrl);
+
+      document.getElementById("presetLocal").addEventListener("click", () => {
+        elements.converterBase.value = presets.local;
+        refreshOutputs();
+      });
+      document.getElementById("presetRemote").addEventListener("click", () => {
+        elements.converterBase.value = presets.remote;
+        refreshOutputs();
+      });
+      document.getElementById("fillExample").addEventListener("click", () => {
+        elements.upstream.value = presets.upstream;
+        refreshOutputs();
+      });
+
+      ["input", "change"].forEach((evt) => {
+        elements.converterBase.addEventListener(evt, refreshOutputs);
+        elements.target.addEventListener(evt, refreshOutputs);
+        elements.upstream.addEventListener(evt, refreshOutputs);
+        elements.externalConfig.addEventListener(evt, refreshOutputs);
+        elements.filename.addEventListener(evt, refreshOutputs);
+      });
+
+      refreshOutputs();
+    </script>
+  </body>
+</html>
